@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Votación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400&family=Montserrat:wght@300;500;700&family=DM+Sans:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--fondo:#F7F7F7;--tinta:#000;--gris:#555;--borde:#E7E7E7;--lima:#D6FF00}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--fondo);color:var(--tinta);font-family:'Montserrat',system-ui,sans-serif;font-weight:300;min-height:100vh;padding:24px 16px 40px}
+  .caja{max-width:560px;margin:0 auto}
+  h1{font-family:'Playfair Display',Georgia,serif;font-weight:400;text-transform:uppercase;letter-spacing:1.3px;font-size:30px;line-height:1.15;margin:8px 0 6px}
+  .sub{color:var(--gris);font-size:16px;margin-bottom:22px}
+  .rejilla{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .rejilla button{font:900 44px 'DM Sans',sans-serif;background:#fff;border:1px solid #000;border-radius:5px;padding:26px 0;cursor:pointer;color:#000}
+  .rejilla button:active{background:#000;color:var(--fondo)}
+  .rejilla button:disabled{opacity:.35;cursor:default}
+  .aviso{margin-top:22px;padding:18px 20px;background:#000;color:var(--fondo);border-radius:5px;font-size:18px;line-height:1.4}
+  .aviso b{color:var(--lima)}
+  .fila{display:grid;grid-template-columns:44px 1fr 58px;align-items:center;gap:12px;margin:10px 0}
+  .fila .n{font:900 30px 'DM Sans',sans-serif}
+  .barra{height:34px;background:#fff;border:1px solid var(--borde);border-radius:5px;overflow:hidden}
+  .barra i{display:block;height:100%;background:#000;width:0;transition:width .4s}
+  .fila.gana .barra i{background:var(--lima);box-shadow:inset 0 0 0 1px #000}
+  .fila .c{font:700 22px 'DM Sans',sans-serif;text-align:right}
+  .estado{font:700 15px 'DM Sans',sans-serif;letter-spacing:1.2px;text-transform:uppercase}
+  .total{color:var(--gris);margin-top:6px}
+  .firma{margin-top:36px;padding-top:16px;border-top:1px solid var(--borde);font-size:14px;color:var(--gris);line-height:1.7}
+  .firma a{color:#000;font-weight:500;text-decoration:none;border-bottom:2px solid var(--lima)}
+</style>
+</head>
+<body>
+<div class="caja">
+  <h1>¿Qué votáis?</h1>
+  <p class="sub">Elige un número.</p>
+  <div class="rejilla" id="rejilla"></div>
+  <div class="aviso" id="aviso">Conectando…</div>
+  <div id="resultado" style="display:none;margin-top:22px"><p class="estado" style="margin-bottom:6px">Resultado en directo</p><div id="barras"></div><p class="total" id="total"></p></div>
+  <p class="firma">María García-Puente · AlterBiblio<br><a href="https://alterbiblio.com" target="_blank" rel="noopener">alterbiblio.com</a> · <a href="https://www.linkedin.com/in/mariagps" target="_blank" rel="noopener">LinkedIn</a></p>
+</div>
+<script>
+  // Habla con el Apps Script de la votación sin usar cuentas de Google (fetch sin cookies)
+  const API = 'https://script.google.com/macros/s/AKfycbzZ5keEiUxTB0gjoViYeBXoIe9LheMLJQqmwd4utPI6VHYb6fH20PZIE_lytf47Ik0/exec';
+  let estado = null, pidiendo = false;
+  const votado = r => { try { return localStorage.getItem('voto-ronda-'+r); } catch(e){ return null; } };
+  const marca = (r,n) => { try { localStorage.setItem('voto-ronda-'+r, n); } catch(e){} };
+  const olvida = r => { try { localStorage.removeItem('voto-ronda-'+r); } catch(e){} };
+  function barras(votos){
+    const max = Math.max(...votos, 0), total = votos.reduce((a,b)=>a+b,0);
+    return { html: votos.map((v,i)=>'<div class="fila'+(v>0&&v===max?' gana':'')+'"><span class="n">'+(i+1)+'</span><div class="barra"><i style="width:'+(max?Math.round(100*v/max):0)+'%"></i></div><span class="c">'+v+'</span></div>').join(''), total: total };
+  }
+  function pinta(){
+    if (!estado) return;
+    const r = document.getElementById('rejilla'), a = document.getElementById('aviso'), v = votado(estado.ronda);
+    if (!r.children.length) { for (let i=1;i<=estado.opciones;i++){ const b=document.createElement('button'); b.textContent=i; b.onclick=()=>vota(i); r.appendChild(b);} }
+    const puede = estado.abierta && !v;
+    [...r.children].forEach(b => b.disabled = !puede);
+    if (!estado.abierta) { a.style.display='block'; a.innerHTML = v ? 'Has votado el <b>'+v+'</b>. Votación cerrada.' : 'Votación cerrada. <b>Espera a la siguiente.</b>'; }
+    else if (v) { a.style.display='block'; a.innerHTML = 'Has votado el <b>'+v+'</b>. Espera a la siguiente pregunta.'; }
+    else a.style.display='none';
+    const res = document.getElementById('resultado');
+    if (v && estado.votos) { const b = barras(estado.votos); document.getElementById('barras').innerHTML = b.html; document.getElementById('total').textContent = b.total + (b.total===1?' voto':' votos'); res.style.display='block'; }
+    else res.style.display='none';
+  }
+  async function pide(params){
+    const r = await fetch(API + '?' + new URLSearchParams(params), { credentials: 'omit' });
+    return r.json();
+  }
+  async function refresca(){
+    if (pidiendo) return; pidiendo = true;
+    try { estado = await pide({ api: 'estado' }); pinta(); }
+    catch(e){ if (!estado) document.getElementById('aviso').textContent = 'No se puede conectar. Vuelve a cargar la página.'; }
+    finally { pidiendo = false; }
+  }
+  async function vota(n){
+    const ronda = estado.ronda; marca(ronda, n); if (estado.votos) estado.votos[n-1]++; pinta();
+    try { const res = await pide({ api: 'votar', o: n, r: ronda }); if (!res.ok) { olvida(ronda); refresca(); } }
+    catch(e){ olvida(ronda); refresca(); }
+  }
+  refresca(); setInterval(refresca, 2000);
+</script>
+</body>
+</html>
