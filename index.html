@@ -54,7 +54,7 @@
   function pinta(){
     if (!estado) return;
     const r = document.getElementById('rejilla'), a = document.getElementById('aviso'), v = votado(estado.ronda);
-    if (!r.children.length) { for (let i=1;i<=estado.opciones;i++){ const b=document.createElement('button'); b.textContent=i; b.onclick=()=>vota(i); r.appendChild(b);} }
+    if (r.children.length !== estado.opciones) { r.innerHTML=''; for (let i=1;i<=estado.opciones;i++){ const b=document.createElement('button'); b.textContent=i; b.onclick=()=>vota(i); r.appendChild(b);} }
     const puede = estado.abierta && !v;
     [...r.children].forEach(b => b.disabled = !puede);
     if (!estado.abierta) { a.style.display='block'; a.innerHTML = v ? 'Has votado el <b>'+v+'</b>. Votación cerrada.' : 'Votación cerrada. <b>Espera a la siguiente.</b>'; }
