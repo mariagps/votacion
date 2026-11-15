@@ -17,6 +17,7 @@
   .rejilla button{font:900 44px 'DM Sans',sans-serif;background:#fff;border:1px solid #000;border-radius:5px;padding:26px 0;cursor:pointer;color:#000}
   .rejilla button:active{background:#000;color:var(--fondo)}
   .rejilla button:disabled{opacity:.35;cursor:default}
+  .rejilla button.gastada{text-decoration:line-through;opacity:.2}
   .aviso{margin-top:22px;padding:18px 20px;background:#000;color:var(--fondo);border-radius:5px;font-size:18px;line-height:1.4}
   .aviso b{color:var(--lima)}
   .fila{display:grid;grid-template-columns:44px 1fr 58px;align-items:center;gap:12px;margin:10px 0}
@@ -55,8 +56,8 @@
     if (!estado) return;
     const r = document.getElementById('rejilla'), a = document.getElementById('aviso'), v = votado(estado.ronda);
     if (r.children.length !== estado.opciones) { r.innerHTML=''; for (let i=1;i<=estado.opciones;i++){ const b=document.createElement('button'); b.textContent=i; b.onclick=()=>vota(i); r.appendChild(b);} }
-    const puede = estado.abierta && !v;
-    [...r.children].forEach(b => b.disabled = !puede);
+    const puede = estado.abierta && !v, bloq = estado.bloqueadas || [];
+    [...r.children].forEach((b, i) => { const x = bloq.includes(i + 1); b.classList.toggle('gastada', x); b.disabled = !puede || x; });
     if (!estado.abierta) { a.style.display='block'; a.innerHTML = v ? 'Has votado el <b>'+v+'</b>. Votación cerrada.' : 'Votación cerrada. <b>Espera a la siguiente.</b>'; }
     else if (v) { a.style.display='block'; a.innerHTML = 'Has votado el <b>'+v+'</b>. Espera a la siguiente pregunta.'; }
     else a.style.display='none';
