@@ -43,7 +43,7 @@
 <script>
   // Habla con el Apps Script de la votación sin usar cuentas de Google (fetch sin cookies)
   const API = 'https://script.google.com/macros/s/AKfycbzZ5keEiUxTB0gjoViYeBXoIe9LheMLJQqmwd4utPI6VHYb6fH20PZIE_lytf47Ik0/exec';
-  let estado = null, pidiendo = false;
+  let estado = null, pidiendo = false, ultimoVoto = 0;   // ultimoVoto: no pintar respuestas pedidas antes de votar
   const votado = r => { try { return localStorage.getItem('voto-ronda-'+r); } catch(e){ return null; } };
   const marca = (r,n) => { try { localStorage.setItem('voto-ronda-'+r, n); } catch(e){} };
   const olvida = r => { try { localStorage.removeItem('voto-ronda-'+r); } catch(e){} };
@@ -70,12 +70,13 @@
   }
   async function refresca(){
     if (pidiendo) return; pidiendo = true;
-    try { estado = await pide({ api: 'estado' }); pinta(); }
+    const pedido = Date.now();
+    try { const e = await pide({ api: 'estado' }); if (pedido >= ultimoVoto) { estado = e; pinta(); } }
     catch(e){ if (!estado) document.getElementById('aviso').textContent = 'No se puede conectar. Vuelve a cargar la página.'; }
     finally { pidiendo = false; }
   }
   async function vota(n){
-    const ronda = estado.ronda; marca(ronda, n); if (estado.votos) estado.votos[n-1]++; pinta();
+    const ronda = estado.ronda; ultimoVoto = Date.now(); marca(ronda, n); if (estado.votos) estado.votos[n-1]++; pinta();
     try { const res = await pide({ api: 'votar', o: n, r: ronda }); if (!res.ok) { olvida(ronda); refresca(); } }
     catch(e){ olvida(ronda); refresca(); }
   }
